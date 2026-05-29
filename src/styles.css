@@ -112,6 +112,8 @@ h4 { margin: 18px 0 8px; color: var(--muted); font-size: 13px; letter-spacing: 0
 .btn.primary { background: var(--primary); border-color: var(--primary); }
 .btn.primary:hover:not(:disabled) { background: var(--primary-d); }
 .btn.ghost { background: transparent; }
+.btn.danger-btn { background: transparent; border-color: var(--danger); color: var(--danger); }
+.btn.danger-btn:hover:not(:disabled) { background: rgba(255, 92, 112, 0.12); }
 
 .row { display: flex; gap: 10px; }
 .row .btn { flex: 1; }

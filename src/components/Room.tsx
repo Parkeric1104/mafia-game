@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useParams } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import { firebaseReady } from "../firebase";
 import type { Phase, Player, Room as RoomT, Role } from "../types";
 import {
+  deleteRoom,
   getMyId,
   getMyName,
   joinRoom,
@@ -139,7 +140,14 @@ function JoinGate({ roomId }: { roomId: string }) {
 
 /* ---------- 로비 ---------- */
 
+async function confirmDelete(roomId: string, navigate: ReturnType<typeof useNavigate>) {
+  if (!window.confirm("정말 이 방을 삭제할까요? 모든 참가자가 방에서 나가집니다.")) return;
+  await deleteRoom(roomId);
+  navigate("/");
+}
+
 function Lobby({ room, roomId, isHost }: { room: RoomT; roomId: string; isHost: boolean }) {
+  const navigate = useNavigate();
   const [copied, setCopied] = useState(false);
   const players = Object.values(room.players ?? {}).sort((a, b) => a.joinedAt - b.joinedAt);
   const comp = useMemo(() => roleComposition(Math.max(players.length, MIN_PLAYERS)), [players.length]);
@@ -193,6 +201,12 @@ function Lobby({ room, roomId, isHost }: { room: RoomT; roomId: string; isHost: 
           </button>
         ) : (
           <p className="muted center-t">방장이 게임을 시작하길 기다리는 중…</p>
+        )}
+
+        {isHost && (
+          <button className="btn danger-btn" onClick={() => confirmDelete(roomId, navigate)}>
+            🗑️ 방 삭제
+          </button>
         )}
       </div>
     </div>
@@ -404,6 +418,7 @@ function VoteResultPanel({ room }: { room: RoomT }) {
 /* ---------- 게임 종료 ---------- */
 
 function GameOver({ room, roomId, isHost }: { room: RoomT; roomId: string; isHost: boolean }) {
+  const navigate = useNavigate();
   const winner = room.meta.winner;
   const players = Object.values(room.players).sort((a, b) => a.joinedAt - b.joinedAt);
   return (
@@ -425,9 +440,14 @@ function GameOver({ room, roomId, isHost }: { room: RoomT; roomId: string; isHos
           ))}
         </div>
         {isHost ? (
-          <button className="btn primary" onClick={() => restartGame(roomId, room)}>
-            다시하기 (대기실로)
-          </button>
+          <>
+            <button className="btn primary" onClick={() => restartGame(roomId, room)}>
+              다시하기 (대기실로)
+            </button>
+            <button className="btn danger-btn" onClick={() => confirmDelete(roomId, navigate)}>
+              🗑️ 방 삭제
+            </button>
+          </>
         ) : (
           <p className="muted center-t">방장이 다시 시작하길 기다리는 중…</p>
         )}

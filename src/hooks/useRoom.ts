@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import {
   onValue,
   ref,
+  remove,
   runTransaction,
   set,
   update,
@@ -325,6 +326,12 @@ export async function restartGame(roomId: string, room: Room) {
   await update(roomRef(roomId), updates);
   // 다시 대기실 → 방 목록에 재노출
   await syncLobby(roomId, { started: false, count: Object.keys(room.players ?? {}).length });
+}
+
+// 방 삭제(관리자 전용): 방 데이터 + 공개 목록 항목 제거
+export async function deleteRoom(roomId: string) {
+  await remove(roomRef(roomId));
+  await remove(lobbyRef(roomId));
 }
 
 export { alivePlayers };
