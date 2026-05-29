@@ -33,6 +33,7 @@ jobs:
           VITE_FIREBASE_DATABASE_URL: ${{ secrets.VITE_FIREBASE_DATABASE_URL }}
           VITE_FIREBASE_PROJECT_ID: ${{ secrets.VITE_FIREBASE_PROJECT_ID }}
           VITE_FIREBASE_APP_ID: ${{ secrets.VITE_FIREBASE_APP_ID }}
+          VITE_ADMIN_CODE: ${{ secrets.VITE_ADMIN_CODE }}
           # repo 이름과 base 경로 일치 (예: /mafia-game/)
           VITE_BASE: /${{ github.event.repository.name }}/
       - uses: actions/upload-pages-artifact@v3

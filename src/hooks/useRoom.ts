@@ -33,8 +33,55 @@ export function getMyId(): string {
   return id;
 }
 
+// 마지막으로 사용한 닉네임 (입장 시 자동 채움)
+export function getMyName(): string {
+  return localStorage.getItem("mafia_name") ?? "";
+}
+export function setMyName(name: string) {
+  localStorage.setItem("mafia_name", name);
+}
+
+// 관리자 코드(방 개설 권한). VITE_ADMIN_CODE 로 변경 가능.
+export const ADMIN_CODE: string = import.meta.env.VITE_ADMIN_CODE || "mafia2026";
+
 function roomRef(roomId: string, path = "") {
   return ref(db!, `rooms/${roomId}${path ? "/" + path : ""}`);
+}
+
+function lobbyRef(roomId = "") {
+  return ref(db!, `lobbies${roomId ? "/" + roomId : ""}`);
+}
+
+// 공개된 방 목록 항목
+export interface LobbyEntry {
+  roomId: string;
+  title: string;
+  hostName: string;
+  count: number;
+  started: boolean;
+  createdAt: number;
+}
+
+// 참여 가능한 방 목록 구독 (started=false 인 방만, 최근순)
+export function useLobbies() {
+  const [lobbies, setLobbies] = useState<LobbyEntry[]>([]);
+  useEffect(() => {
+    if (!db) return;
+    const unsub = onValue(lobbyRef(), (snap) => {
+      const val = (snap.val() ?? {}) as Record<string, Omit<LobbyEntry, "roomId">>;
+      const list = Object.entries(val)
+        .map(([roomId, v]) => ({ roomId, ...v }))
+        .filter((l) => !l.started)
+        .sort((a, b) => b.createdAt - a.createdAt);
+      setLobbies(list);
+    });
+    return () => unsub();
+  }, []);
+  return lobbies;
+}
+
+export async function syncLobby(roomId: string, patch: Record<string, unknown>) {
+  await update(lobbyRef(roomId), patch);
 }
 
 export function useRoom(roomId: string) {
@@ -99,6 +146,14 @@ export async function createRoom(roomId: string, hostId: string, hostName: strin
       [hostId]: { id: hostId, name: hostName, alive: true, joinedAt: now },
     },
   });
+  // 공개 방 목록에 등록
+  await set(lobbyRef(roomId), {
+    title: `${hostName}님의 방`,
+    hostName,
+    count: 1,
+    started: false,
+    createdAt: now,
+  });
 }
 
 export async function joinRoom(roomId: string, id: string, name: string) {
@@ -129,6 +184,8 @@ export async function startGame(roomId: string, room: Room) {
   playerUpdates["meta/lastLynched"] = null;
 
   await update(roomRef(roomId), playerUpdates);
+  // 게임 시작 → 방 목록에서 숨김
+  await syncLobby(roomId, { started: true });
 }
 
 export async function submitNightAction(
@@ -180,6 +237,15 @@ async function advancePhase(roomId: string, room: Room) {
     });
   } else if (expectedPhase === "vote") {
     await resolveVotePhase(roomId, room);
+  } else if (expectedPhase === "voteResult") {
+    // 투표 결과 확인 종료 → 다음 밤
+    await update(roomRef(roomId, "meta"), {
+      phase: "night",
+      round: room.meta.round + 1,
+      phaseEndsAt: Date.now() + PHASE_MS.night,
+      lastVictim: null,
+      resolving: false,
+    });
   }
 }
 
@@ -230,10 +296,9 @@ async function resolveVotePhase(roomId: string, room: Room) {
     updates["meta/phase"] = "ended";
     updates["meta/winner"] = winner;
   } else {
-    updates["meta/phase"] = "night";
-    updates["meta/round"] = room.meta.round + 1;
-    updates["meta/phaseEndsAt"] = Date.now() + PHASE_MS.night;
-    updates["meta/lastVictim"] = null;
+    // 투표 결과 확인 화면으로 (다음 밤은 voteResult 종료 후)
+    updates["meta/phase"] = "voteResult";
+    updates["meta/phaseEndsAt"] = Date.now() + PHASE_MS.voteResult;
   }
   await update(roomRef(roomId), updates);
 }
@@ -258,6 +323,8 @@ export async function restartGame(roomId: string, room: Room) {
     updates[`players/${p.id}/role`] = null;
   }
   await update(roomRef(roomId), updates);
+  // 다시 대기실 → 방 목록에 재노출
+  await syncLobby(roomId, { started: false, count: Object.keys(room.players ?? {}).length });
 }
 
 export { alivePlayers };

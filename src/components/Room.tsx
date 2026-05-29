@@ -1,14 +1,17 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
 import { firebaseReady } from "../firebase";
-import type { Player, Room as RoomT, Role } from "../types";
+import type { Phase, Player, Room as RoomT, Role } from "../types";
 import {
   getMyId,
+  getMyName,
   joinRoom,
   restartGame,
+  setMyName,
   startGame,
   submitNightAction,
   submitVote,
+  syncLobby,
   useRoom,
 } from "../hooks/useRoom";
 import { alivePlayers, policeResult } from "../game/engine";
@@ -30,6 +33,31 @@ function Timer({ endsAt }: { endsAt: number }) {
   }, []);
   const remain = Math.max(0, Math.ceil((endsAt - now) / 1000));
   return <span className="timer">{remain}s</span>;
+}
+
+// 페이즈 시작 안내 문구
+const PHASE_BANNER: Partial<Record<Phase, string>> = {
+  night: "🌙 밤이 되었습니다",
+  day: "☀️ 아침이 되었습니다",
+  vote: "🗳️ 투표를 시작합니다",
+  voteResult: "📢 투표 결과 발표",
+};
+
+// 페이즈가 바뀔 때마다 큰 안내 배너를 잠시 띄운다
+function useBanner(phase: Phase): string | null {
+  const [banner, setBanner] = useState<string | null>(null);
+  const prev = useRef<Phase | null>(null);
+  useEffect(() => {
+    const before = prev.current;
+    prev.current = phase;
+    if (before === null || before === phase) return; // 첫 진입/동일 페이즈는 무시
+    const msg = PHASE_BANNER[phase];
+    if (!msg) return;
+    setBanner(msg);
+    const t = setTimeout(() => setBanner(null), 3200);
+    return () => clearTimeout(t);
+  }, [phase]);
+  return banner;
 }
 
 function PlayerChips({
@@ -80,11 +108,12 @@ function LogPanel({ room }: { room: RoomT }) {
 /* ---------- 입장 ---------- */
 
 function JoinGate({ roomId }: { roomId: string }) {
-  const [name, setName] = useState("");
+  const [name, setName] = useState(getMyName());
   const [busy, setBusy] = useState(false);
   async function go() {
     if (!name.trim() || busy) return;
     setBusy(true);
+    setMyName(name.trim());
     await joinRoom(roomId, getMyId(), name.trim());
   }
   return (
@@ -115,6 +144,11 @@ function Lobby({ room, roomId, isHost }: { room: RoomT; roomId: string; isHost: 
   const players = Object.values(room.players ?? {}).sort((a, b) => a.joinedAt - b.joinedAt);
   const comp = useMemo(() => roleComposition(Math.max(players.length, MIN_PLAYERS)), [players.length]);
   const counts = comp.reduce<Record<string, number>>((m, r) => ((m[r] = (m[r] ?? 0) + 1), m), {});
+
+  // 방장이 대기 인원 수를 방 목록에 동기화
+  useEffect(() => {
+    if (isHost) void syncLobby(roomId, { count: players.length, started: false });
+  }, [isHost, roomId, players.length]);
 
   function copyLink() {
     navigator.clipboard.writeText(window.location.href);
@@ -344,6 +378,29 @@ function VotePanel({ room, roomId, me }: { room: RoomT; roomId: string; me: Play
   );
 }
 
+/* ---------- 투표 결과 ---------- */
+
+function VoteResultPanel({ room }: { room: RoomT }) {
+  const lynched = room.meta.lastLynched ? room.players[room.meta.lastLynched] : null;
+  return (
+    <div className="screen day">
+      <div className="topbar">
+        <span>📢 투표 결과</span>
+        <Timer endsAt={room.meta.phaseEndsAt} />
+      </div>
+      <div className="card">
+        <h2 className="center-t">
+          {lynched
+            ? `⚖️ ${lynched.name} 님이 처형되었습니다.`
+            : "🤝 투표가 부결되어 아무도 처형되지 않았습니다."}
+        </h2>
+        <p className="center-t muted">잠시 후 다시 밤이 시작됩니다…</p>
+      </div>
+      <LogPanel room={room} />
+    </div>
+  );
+}
+
 /* ---------- 게임 종료 ---------- */
 
 function GameOver({ room, roomId, isHost }: { room: RoomT; roomId: string; isHost: boolean }) {
@@ -385,6 +442,7 @@ export default function Room() {
   const { roomId = "" } = useParams();
   const myId = getMyId();
   const { room, loading } = useRoom(roomId);
+  const banner = useBanner(room?.meta.phase ?? "lobby");
 
   if (!firebaseReady) {
     return (
@@ -433,10 +491,22 @@ export default function Room() {
 
   const isHost = room.meta.hostId === myId;
 
-  if (phase === "lobby") return <Lobby room={room} roomId={roomId} isHost={isHost} />;
-  if (phase === "night") return <NightPanel room={room} roomId={roomId} me={me} />;
-  if (phase === "day") return <DayPanel room={room} me={me} />;
-  if (phase === "vote") return <VotePanel room={room} roomId={roomId} me={me} />;
-  if (phase === "ended") return <GameOver room={room} roomId={roomId} isHost={isHost} />;
-  return null;
+  let panel: JSX.Element | null = null;
+  if (phase === "lobby") panel = <Lobby room={room} roomId={roomId} isHost={isHost} />;
+  else if (phase === "night") panel = <NightPanel room={room} roomId={roomId} me={me} />;
+  else if (phase === "day") panel = <DayPanel room={room} me={me} />;
+  else if (phase === "vote") panel = <VotePanel room={room} roomId={roomId} me={me} />;
+  else if (phase === "voteResult") panel = <VoteResultPanel room={room} />;
+  else if (phase === "ended") panel = <GameOver room={room} roomId={roomId} isHost={isHost} />;
+
+  return (
+    <>
+      {banner && (
+        <div className="banner-overlay">
+          <div className="banner-text">{banner}</div>
+        </div>
+      )}
+      {panel}
+    </>
+  );
 }

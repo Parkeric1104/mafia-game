@@ -4,8 +4,9 @@ import { ROLE_TEAM } from "./roles";
 // 페이즈별 제한 시간(ms)
 export const PHASE_MS = {
   night: 30_000,
-  day: 40_000,
+  day: 60_000, // 밤 결과 확인 + 토론
   vote: 30_000,
+  voteResult: 15_000, // 투표 결과를 충분히 볼 수 있도록
 } as const;
 
 export function alivePlayers(room: Room): Player[] {

@@ -176,3 +176,49 @@ h4 { margin: 18px 0 8px; color: var(--muted); font-size: 13px; letter-spacing: 0
 .card.citizen-win { border-color: var(--safe); box-shadow: 0 0 60px rgba(46, 230, 166, 0.2); }
 
 code { background: var(--bg2); padding: 2px 6px; border-radius: 6px; font-size: 13px; }
+
+/* 방 목록 */
+.room-list { display: grid; gap: 10px; margin: 6px 0; }
+.room-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: var(--bg2);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 12px 14px;
+}
+.room-title { font-weight: 600; }
+.btn.small-btn { width: auto; margin-top: 0; padding: 9px 18px; font-size: 14px; }
+
+/* 페이즈 안내 배너 */
+.banner-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(5, 6, 12, 0.78);
+  backdrop-filter: blur(3px);
+  animation: bannerFade 3.2s ease forwards;
+  pointer-events: none;
+}
+.banner-text {
+  font-size: 34px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  text-align: center;
+  padding: 0 24px;
+  animation: bannerPop 0.45s cubic-bezier(0.18, 0.9, 0.3, 1.2);
+}
+@keyframes bannerFade {
+  0% { opacity: 0; }
+  12% { opacity: 1; }
+  80% { opacity: 1; }
+  100% { opacity: 0; }
+}
+@keyframes bannerPop {
+  0% { transform: scale(0.7); opacity: 0; }
+  100% { transform: scale(1); opacity: 1; }
+}
