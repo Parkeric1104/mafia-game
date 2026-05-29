@@ -21,6 +21,29 @@ body {
   color: var(--text);
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
   -webkit-font-smoothing: antialiased;
+  transition: background 0.7s ease, color 0.7s ease;
+}
+
+/* ☀️ 낮(라이트) 테마 — 낮/투표/결과 페이즈에서 body[data-theme="light"] 적용 */
+body[data-theme="light"] {
+  --bg: #e6edf7;
+  --bg2: #ffffff;
+  --card: #ffffff;
+  --line: #d6dde9;
+  --text: #1b2030;
+  --muted: #69708a;
+  --danger: #e23b54;
+  --safe: #109e74;
+  --gold: #b97e00;
+  background: radial-gradient(1200px 600px at 50% -8%, #fff4d6, #d9e6f6);
+}
+body[data-theme="light"] .card { box-shadow: 0 18px 50px rgba(80, 100, 140, 0.18); }
+
+/* 테마 전환을 부드럽게 */
+.card, .input, .btn, .chip, .timer, .role-badge, .findings, .log,
+.reveal-row, .room-row, .topbar {
+  transition: background-color 0.7s ease, border-color 0.7s ease, color 0.7s ease,
+    box-shadow 0.7s ease;
 }
 
 .screen {
@@ -210,6 +233,7 @@ code { background: var(--bg2); padding: 2px 6px; border-radius: 6px; font-size: 
   letter-spacing: 0.02em;
   text-align: center;
   padding: 0 24px;
+  color: #f5f6fb; /* 어두운 오버레이 위라 테마와 무관하게 밝게 고정 */
   animation: bannerPop 0.45s cubic-bezier(0.18, 0.9, 0.3, 1.2);
 }
 @keyframes bannerFade {

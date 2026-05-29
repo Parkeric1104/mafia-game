@@ -442,7 +442,17 @@ export default function Room() {
   const { roomId = "" } = useParams();
   const myId = getMyId();
   const { room, loading } = useRoom(roomId);
-  const banner = useBanner(room?.meta.phase ?? "lobby");
+  const phaseNow = room?.meta.phase ?? "lobby";
+  const banner = useBanner(phaseNow);
+
+  // 낮(아침)/투표/투표결과는 라이트 테마, 밤·로비·종료는 다크 테마
+  useEffect(() => {
+    const light = phaseNow === "day" || phaseNow === "vote" || phaseNow === "voteResult";
+    document.body.dataset.theme = light ? "light" : "dark";
+    return () => {
+      document.body.dataset.theme = "dark";
+    };
+  }, [phaseNow]);
 
   if (!firebaseReady) {
     return (
